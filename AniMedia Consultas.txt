@@ -1,0 +1,125 @@
+-------------------------------------------------------------------------------------------
+
+select * from capitulo
+	order by id_temporada,numero
+
+--Lista de series que estuvieron en los ultimos dos capitulos
+	
+select A.id,A.nombre into temp ult2caps from fragmento F
+	inner join anime A
+		on F.id_anime = A.id
+	where (F.id_capitulo between 23 and 24)
+	group by A.id,A.nombre
+	order by A.nombre
+
+--Lista de series que esta permitido utilizar en el nuevo capitulo
+
+select A.id,A.nombre from anime A
+	left join ult2caps U2C
+		on A.id = U2C.id
+	where (U2C.id is null and A.terminado = false)
+	order by A.nombre
+
+select * from ult2caps
+
+drop table ult2caps
+
+-------------------------------------------------------------------------------------------
+
+select * from capitulo
+
+--Lista de series que estuvieron en los ultimos dos capitulos
+
+select A.id,A.nombre into temp ult2caps from fragmento F
+	inner join anime A
+		on F.id_anime = A.id
+	where (F.id_capitulo between 23 and 24)
+	group by A.id,A.nombre
+	order by A.nombre
+
+--Lista de series que esta permitido utilizar en el nuevo capitulo
+
+select A.id,A.nombre into temp animenuevocap from anime A
+	left join ult2caps U2C
+		on A.id = U2C.id
+	where (U2C.id is null and A.terminado = false)
+	order by A.nombre
+
+select * from ult2caps
+select * from animenuevocap
+
+drop table ult2caps
+drop table animenuevocap
+
+--Lista de fragmentos correspondientes a las series utilizables en el nuevo capitulo
+
+select ANC.nombre,F.secuencia_anime,F.nombre,F.id from fragmento F
+	inner join animenuevocap ANC
+		on ANC.id = F.id_anime
+	where (id_capitulo is null)
+	order by ANC.nombre,F.secuencia_anime
+	
+-------------------------------------------------------------------------------------------
+
+--Anime de la temporada en interes
+
+select A.id,A.nombre,A.terminado into temp animetemp1 from anime A
+	inner join fragmento F
+		on A.id = F.id_anime
+	inner join capitulo C
+		on C.id = F.id_capitulo
+	where (C.id_temporada = 1)
+	group by A.id,A.nombre,A.terminado
+	order by A.nombre
+
+select * from animetemp1
+
+drop table animetemp1
+
+--Anime del resto de las temporadas
+
+select A.id,A.nombre,A.terminado into temp animetemp2 from anime A
+	inner join fragmento F
+		on A.id = F.id_anime
+	inner join capitulo C
+		on C.id = F.id_capitulo
+	where (C.id_temporada between 2 and 3)
+	group by A.id,A.nombre,A.terminado
+	order by A.nombre
+
+select * from animetemp2
+
+drop table animetemp2
+
+--Anime que solo aparece en la temporada de interes
+
+select AT1.id,AT1.nombre,AT1.terminado into temp animetemp3 from animetemp1 AT1
+	left join animetemp2 AT2
+		on AT1.id = AT2.id
+	where (AT2.id is null and AT1.terminado = true)
+
+select * from animetemp3
+
+drop table animetemp3
+	
+--Anime con mas de un clip
+
+select A.id,A.nombre,count(F.id) into temp animetemp4 from anime A
+	inner join fragmento F
+		on A.id = F.id_anime
+	group by A.id,A.nombre
+	having (count(F.id) > 1)
+	order by A.nombre
+
+select * from animetemp4
+
+drop table animetemp4
+
+--Anime de los cuales se debe hacer un especial
+
+select AT3.nombre from animetemp3 AT3
+	inner join animetemp4 AT4
+		on AT3.id = AT4.id
+	order by AT3.nombre
+
+-------------------------------------------------------------------------------------------

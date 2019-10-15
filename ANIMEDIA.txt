@@ -1,0 +1,2416 @@
+create table anime
+(
+id serial primary key,
+nombre varchar(60) not null,
+estado char(16) constraint  chk_estado check (estado in ('CONCLUIDO','VIGENTE','INCIERTO')) default 'INCIERTO'
+terminado boolean default FALSE 
+);
+
+create table oped
+(
+id serial primary key,
+nombre varchar(60) not null,
+tipo char(16) constraint  chk_tipo check (tipo in ('OP','ED','MUSIC_CLIP')),
+numero int not null,
+descripcion varchar(60)
+);
+
+create table temporada
+(
+id serial primary key,
+nombre varchar(16) not null
+);
+
+create table capitulo
+(
+id serial primary key,
+nombre varchar(60) not null,
+numero int not null,
+id_temporada int not null,
+id_op int null,
+id_ed int null,
+
+constraint fk1_capitulo_temporada foreign key (id_temporada) references temporada(id),
+constraint fk2_capitulo_oped foreign key (id_op) references oped(id),
+constraint fk3_capitulo_oped foreign key (id_ed) references oped(id),
+constraint u_capitulo unique (numero,id_temporada)
+);
+
+create table fragmento
+(
+id serial primary key,
+nombre varchar(60) not null,
+secuencia_anime int not null,
+id_anime int not null,
+secuencia_capitulo int null default null,
+id_capitulo int null default null,
+
+constraint fk1_fragmento_anime foreign key (id_anime) references anime(id),
+constraint fk2_fragmento_capitulo foreign key (id_capitulo) references capitulo(id),
+constraint u1_capitulo unique (secuencia_anime,id_anime),
+constraint u2_capitulo unique (secuencia_capitulo,id_capitulo)
+);
+
+--------------------------------------------------------------------------
+
+insert into temporada(nombre)
+values('TEMPORADA 1');
+insert into temporada(nombre)
+values('TEMPORADA 2');
+insert into temporada(nombre)
+values('TEMPORADA 3');
+
+--------------------------------------------------------------------------
+
+insert into oped(nombre,tipo,numero,descripcion) values('AniMedia T2','OP','1','Repaso de las series de la primera temporada');
+insert into oped(nombre,tipo,numero) values('Black Lagoon: Robertas Blood Trail','ED','3');
+insert into oped(nombre,tipo,numero) values('Shingeki no Kyojin','OP','1');
+insert into oped(nombre,tipo,numero) values('Shingeki no Kyojin','ED','1');
+insert into oped(nombre,tipo,numero) values('Carnival Phantasm','OP','1');
+insert into oped(nombre,tipo,numero) values('Beelzebub','ED','4');
+insert into oped(nombre,tipo,numero) values('Lodoss-tou Senki: Eiyuu Kishi Den','OP','1');
+insert into oped(nombre,tipo,numero) values('Asobi ni Iku yo!','MUSIC_CLIP','1');
+insert into oped(nombre,tipo,numero) values('Mobile Suit Gundam Wing','OP','1');
+insert into oped(nombre,tipo,numero) values('Mobile Suit Gundam Wing: Endless Waltz','ED','1');
+insert into oped(nombre,tipo,numero) values('Dragon Ball','OP','1');
+insert into oped(nombre,tipo,numero) values('Dragon Ball Z','ED','2');
+insert into oped(nombre,tipo,numero) values('Rosario to Vampire Capu2','OP','1');
+insert into oped(nombre,tipo,numero,descripcion) values('Suzumiya Haruhi no Yuuutsu','ED','1','Full Dance');
+insert into oped(nombre,tipo,numero) values('Cowboy Bebop','OP','1');
+insert into oped(nombre,tipo,numero) values('Cowboy Bebop','ED','1');
+insert into oped(nombre,tipo,numero) values('Ergo Proxy','OP','1');
+insert into oped(nombre,tipo,numero) values('Wolfs Rain','ED','1');
+insert into oped(nombre,tipo,numero) values('Maison Ikkoku','OP','2');
+insert into oped(nombre,tipo,numero) values('Maison Ikkoku','ED','3');
+
+--------------------------------------------------------------------------
+
+create function numero_capitulo() returns trigger as $$
+declare 
+	num int;
+	tempo int;
+begin
+	tempo := new.id_temporada;
+	select count(C.id) into num from temporada T
+		inner join capitulo C
+			on T.id = C.id_temporada
+		where (T.id = tempo);
+	num := num + 1;
+	new.numero := num;
+	return new;
+end
+$$ language plpgsql;
+
+create trigger capitulo_insert
+	before insert on capitulo for each row
+	execute procedure numero_capitulo();
+
+drop trigger capitulo_insert on capitulo
+drop function numero_capitulo()
+
+--------------------------------------------------------------------------
+
+insert into capitulo(nombre,id_temporada) values ('The beginning',1)
+insert into capitulo(nombre,id_temporada) values ('Divide et Impera',1)
+insert into capitulo(nombre,id_temporada) values ('BiOuBi',1)
+insert into capitulo(nombre,id_temporada) values ('Meerjungfrau',1)
+insert into capitulo(nombre,id_temporada) values ('Pterodoras Granulosus',1)
+insert into capitulo(nombre,id_temporada) values ('Mezentius',1)
+insert into capitulo(nombre,id_temporada) values ('She rules',1)
+insert into capitulo(nombre,id_temporada) values ('Persona non grata',1)
+insert into capitulo(nombre,id_temporada) values ('Eiserne Drossel',1)
+insert into capitulo(nombre,id_temporada) values ('X an easy target',1)
+
+--------------------------------------------------------------------------
+
+insert into capitulo(nombre,id_temporada,id_op,id_ed) values ('Rebirth, Renewal, Revival',2,41,42);
+insert into capitulo(nombre,id_temporada,id_op,id_ed) values ('La verdad de la milanesa',2,43,44);
+insert into capitulo(nombre,id_temporada,id_op,id_ed) values ('Ataraxia',2,45,46);
+insert into capitulo(nombre,id_temporada,id_op,id_ed) values ('Astora',2,47,48);
+insert into capitulo(nombre,id_temporada,id_op,id_ed) values ('Vaccinium Corymbosum',2,49,50);
+insert into capitulo(nombre,id_temporada,id_op,id_ed) values ('Kappa',2,51,52);
+insert into capitulo(nombre,id_temporada,id_op,id_ed) values ('Atlas',2,53,54);
+insert into capitulo(nombre,id_temporada,id_op,id_ed) values ('The Soul of carnage',2,55,56);
+insert into capitulo(nombre,id_temporada,id_op,id_ed) values ('Vereor Nox',2,57,58);
+insert into capitulo(nombre,id_temporada,id_op,id_ed) values ('Catarsis',2,59,60);
+
+--------------------------------------------------------------------------
+
+create function terminado_anime() returns trigger as $$
+declare 
+	term boolean;
+begin
+	term := new.terminado;
+	if (term = TRUE) then
+		new.estado := 'CONCLUIDO';
+	else
+		new.estado := 'INCIERTO';
+	end if;
+	return new;
+end
+$$ language plpgsql;
+
+create trigger anime_insert
+	before insert on anime for each row
+	execute procedure terminado_anime();
+
+create trigger anime_update
+	before update on anime for each row
+	execute procedure terminado_anime();
+
+drop trigger anime_insert on anime;
+drop trigger anime_update on anime;
+drop function terminado_anime();
+
+--------------------------------------------------------------------------
+
+insert into anime(nombre) values ('Aa! Megami-sama!
+');
+insert into anime(nombre) values ('Amagami SS
+');
+insert into anime(nombre) values ('Angel Beats!
+');
+insert into anime(nombre) values ('Another
+');
+insert into anime(nombre) values ('Asu no Yoichi!
+');
+insert into anime(nombre) values ('Azumanga Daioh
+');
+insert into anime(nombre) values ('Baccano!
+');
+insert into anime(nombre) values ('Baka to Test to Shoukanjuu
+');
+insert into anime(nombre) values ('Monogatari Series
+');
+insert into anime(nombre) values ('Barakamon
+');
+insert into anime(nombre) values ('Beelzebub
+');
+insert into anime(nombre) values ('Binbougami ga!
+');
+insert into anime(nombre) values ('Black Lagoon
+');
+insert into anime(nombre) values ('Boku wa Tomodachi ga Sukunai
+');
+insert into anime(nombre) values ('Bubblegum
+');
+insert into anime(nombre) values ('City Hunter
+');
+insert into anime(nombre) values ('Clannad
+');
+insert into anime(nombre) values ('Code:Breaker
+');
+insert into anime(nombre) values ('Cowboy Bebop
+');
+insert into anime(nombre) values ('Sakigake!! Cromartie Koukou
+');
+insert into anime(nombre) values ('Danshi Koukousei no Nichijou
+');
+insert into anime(nombre) values ('Detroit Metal City
+');
+insert into anime(nombre) values ('Dragon Ball
+');
+insert into anime(nombre) values ('Heppoko Jikken Animation Excel Saga
+');
+insert into anime(nombre) values ('Full Metal Panic!
+');
+insert into anime(nombre) values ('Fullmetal Alchemist
+');
+insert into anime(nombre) values ('Mirai Shounen Conan
+');
+insert into anime(nombre) values ('Gekkan Shoujo Nozaki-kun
+');
+insert into anime(nombre) values ('Ghost Sweeper GS Mikami
+');
+insert into anime(nombre) values ('Gintama
+');
+insert into anime(nombre) values ('Gokukoku no Brynhildr
+');
+insert into anime(nombre) values ('Golden Time
+');
+insert into anime(nombre) values ('Great Teacher Onizuka
+');
+insert into anime(nombre) values ('Gugure! Kokkuri-san
+');
+insert into anime(nombre) values ('Haiyore! Nyaruko-san
+');
+insert into anime(nombre) values ('Hataraku Maou-sama!
+');
+insert into anime(nombre) values ('Hidan no Aria
+');
+insert into anime(nombre) values ('InuYasha
+');
+insert into anime(nombre) values ('Jigoku Sensei Nube
+');
+insert into anime(nombre) values ('K-On!
+');
+insert into anime(nombre) values ('Karin
+');
+insert into anime(nombre) values ('Kill la Kill
+');
+insert into anime(nombre) values ('Kill Me Baby
+');
+insert into anime(nombre) values ('Lucky☆Star
+');
+insert into anime(nombre) values ('Maison Ikkoku
+');
+insert into anime(nombre) values ('Majo no Takkyuubin
+');
+insert into anime(nombre) values ('Mahouka Koukou no Rettousei
+');
+insert into anime(nombre) values ('Kidou Senkan Nadesico
+');
+insert into anime(nombre) values ('Mawaru Penguindrum
+');
+insert into anime(nombre) values ('Mayoi Neko Overrun!
+');
+insert into anime(nombre) values ('Minami-ke
+');
+insert into anime(nombre) values ('Mirai Nikki
+');
+insert into anime(nombre) values ('Miss Monochrome: The Animation
+');
+insert into anime(nombre) values ('Muteki Kanban Musume
+');
+insert into anime(nombre) values ('Natsu no Arashi!
+');
+insert into anime(nombre) values ('Negima!
+');
+insert into anime(nombre) values ('Nourin
+');
+insert into anime(nombre) values ('Nyan Koi!
+');
+insert into anime(nombre) values ('Nyoro-n Churuya-san
+');
+insert into anime(nombre) values ('Onegai☆Teacher
+');
+insert into anime(nombre) values ('Onegai Twins
+');
+insert into anime(nombre) values ('Project A-Ko
+');
+insert into anime(nombre) values ('Ranma ½
+');
+insert into anime(nombre) values ('Rosario to Vampire
+');
+insert into anime(nombre) values ('Rozen Maiden
+');
+insert into anime(nombre) values ('Rurouni Kenshin: Meiji Kenkaku Romantan
+');
+insert into anime(nombre) values ('Sabagebu!
+');
+insert into anime(nombre) values ('Saint Seiya
+');
+insert into anime(nombre) values ('Samurai Champloo
+');
+insert into anime(nombre) values ('Sayonara Zetsubou Sensei
+');
+insert into anime(nombre) values ('School Rumble
+');
+insert into anime(nombre) values ('Servant x Service
+');
+insert into anime(nombre) values ('Seto no Hanayome
+');
+insert into anime(nombre) values ('Shakugan no Shana
+');
+insert into anime(nombre) values ('Shaman King
+');
+insert into anime(nombre) values ('Shigatsu wa Kimi no Uso
+');
+insert into anime(nombre) values ('Shijou Saikyou no Deshi Kenichi
+');
+insert into anime(nombre) values ('Shingeki no Kyojin
+');
+insert into anime(nombre) values ('Shinryaku! Ika Musume
+');
+insert into anime(nombre) values ('SKET Dance
+');
+insert into anime(nombre) values ('Slam Dunk
+');
+insert into anime(nombre) values ('Strike the Blood
+');
+insert into anime(nombre) values ('Suzumiya Haruhi no Yuuutsu
+');
+insert into anime(nombre) values ('Tetsuwan Birdy
+');
+insert into anime(nombre) values ('Sakurasou no Pet na Kanojo
+');
+insert into anime(nombre) values ('Tenkuu no Escaflowne
+');
+insert into anime(nombre) values ('Kami nomi zo Shiru Sekai
+');
+insert into anime(nombre) values ('Elf wo Karu Mono-tachi
+');
+insert into anime(nombre) values ('Tonari no Kaibutsu-kun
+');
+insert into anime(nombre) values ('Tonari no Seki-kun
+');
+insert into anime(nombre) values ('Tonari no Totoro
+');
+insert into anime(nombre) values ('Urusei Yatsura
+');
+insert into anime(nombre) values ('Ushinawareta Mirai wo Motomete
+');
+insert into anime(nombre) values ('Watashi ga Motenai no wa Dou Kangaetemo Omaera ga Warui!
+');
+insert into anime(nombre) values ('Yahari Ore no Seishun Love Comedy wa Machigatteiru.
+');
+insert into anime(nombre) values ('Youre Under Arrest!
+');
+insert into anime(nombre) values ('Zero no Tsukaima
+');
+
+--------------------------------------------------------------------------
+
+create function sec_estado_fragmento_insert() returns trigger as $$
+declare 
+	sec_anime int;
+	sec_capitulo int;
+	capitulo int;
+	serie int;
+	disponibles int;
+	concluido varchar(16);
+begin
+	capitulo := new.id_capitulo;
+	serie := new.id_anime;
+
+	select count(F.id) into sec_anime from anime A
+		inner join fragmento F
+			on A.id = F.id_anime
+		where (A.id = serie);
+	sec_anime := sec_anime + 1;
+	new.secuencia_anime := sec_anime;
+		
+	if (capitulo is not null) then
+		begin
+			select count(F.id) into sec_capitulo from capitulo C
+				inner join fragmento F
+					on C.id = F.id_capitulo
+				where (C.id = capitulo);
+			sec_capitulo := sec_capitulo + 1;
+			new.secuencia_capitulo = sec_capitulo;
+		end;
+	end if;
+
+	select count(F.id) into disponibles from fragmento F
+		inner join anime A
+			on A.id = F.id_anime
+		where (capitulo is null);
+
+	select estado into concluido from anime
+		where (id = serie);
+
+	if (concluido <> 'CONCLUIDO') then
+		
+			if (disponibles > 0) then
+				begin
+					update anime
+					set estado = 'VIGENTE'
+					where (id = serie);
+				end;
+			else
+				begin
+					update anime
+					set estado = 'INCIERTO'
+					where (id = serie);
+				end;
+			end if;
+		
+	end if;
+	return new;
+end
+$$ language plpgsql;
+
+create trigger fragmento_insert
+	before insert on fragmento for each row
+	execute procedure sec_estado_fragmento_insert();
+
+create function sec_estado_fragmento_update() returns trigger as $$
+declare 
+	sec_capitulo int;
+	capitulo int;
+	serie int;
+	disponibles int;
+	concluido varchar(16);
+begin
+	new.secuencia_anime := old.secuencia_anime;
+	serie := new.id_anime;
+	capitulo := new.id_capitulo;
+	
+	if (capitulo is not null) then
+		begin
+			select count(F.id) into sec_capitulo from capitulo C
+				inner join fragmento F
+					on C.id = F.id_capitulo
+				where (C.id = capitulo);
+			sec_capitulo := sec_capitulo + 1;
+			new.secuencia_capitulo = sec_capitulo;
+		end;
+	end if;
+
+	select estado into concluido from anime
+		where (id = serie);
+
+	if (concluido <> 'CONCLUIDO') then
+		
+			if (disponibles > 0) then
+				begin
+					update anime
+					set estado = 'VIGENTE'
+					where (id = serie);
+				end;
+			else
+				begin
+					update anime
+					set estado = 'INCIERTO'
+					where (id = serie);
+				end;
+			end if;
+		
+	end if;
+	
+	return new;
+end
+$$ language plpgsql;
+
+create trigger fragmento_update
+	before update on fragmento for each row
+	execute procedure sec_estado_fragmento_update();
+
+drop trigger fragmento_insert on fragmento;
+drop trigger fragmento_update on fragmento;
+drop function sec_estado_fragmento_insert();
+drop function sec_estado_fragmento_update();
+
+--------------------------------------------------------------------------
+
+insert into fragmento (nombre,id_anime) values ('Viviendo juntos',14);
+insert into fragmento (nombre,id_anime) values ('Demonio de la pobreza',14);
+insert into fragmento (nombre,id_anime) values ('Tetera',14);
+insert into fragmento (nombre,id_anime) values ('Pared',14);
+insert into fragmento (nombre,id_anime) values ('Reconstruccion',14);
+
+insert into fragmento (nombre,id_anime) values ('Solo el chocolate',15);
+
+insert into fragmento (nombre,id_anime) values ('Eso es lo que me paso a mi',16);
+insert into fragmento (nombre,id_anime) values ('No sabia nadar',16);
+insert into fragmento (nombre,id_anime) values ('Distracciones',16);
+
+insert into fragmento (nombre,id_anime) values ('Baile',17);
+
+insert into fragmento (nombre,id_anime) values ('Pases',19);
+insert into fragmento (nombre,id_anime) values ('Miedo a la oscuridad',19);
+insert into fragmento (nombre,id_anime) values ('Bicicleta accidentada',19);
+insert into fragmento (nombre,id_anime) values ('Ternera',19);
+insert into fragmento (nombre,id_anime) values ('Relaciones entre adultos',19);
+insert into fragmento (nombre,id_anime) values ('Papa Noel',19);
+insert into fragmento (nombre,id_anime) values ('Yomi fue a Hokkaido',19);
+insert into fragmento (nombre,id_anime) values ('Ansiedad',19);
+insert into fragmento (nombre,id_anime) values ('Mocosa al mar',19);
+insert into fragmento (nombre,id_anime) values ('Sata andagi',19);
+insert into fragmento (nombre,id_anime) values ('Malas palabras',19);
+insert into fragmento (nombre,id_anime) values ('Gato montes',19);
+insert into fragmento (nombre,id_anime) values ('Rasguño',19);
+insert into fragmento (nombre,id_anime) values ('Cuchillo despertador',19);
+insert into fragmento (nombre,id_anime) values ('Carrera de relevos',19);
+
+insert into fragmento (nombre,id_anime) values ('Yo no soy el de abajo',21);
+insert into fragmento (nombre,id_anime) values ('Almuerzos mortales',21);
+insert into fragmento (nombre,id_anime) values ('Problem breaker',21);
+insert into fragmento (nombre,id_anime) values ('Soy un chico',21);
+insert into fragmento (nombre,id_anime) values ('Parque de atracciones',21);
+insert into fragmento (nombre,id_anime) values ('Mensaje capcioso',21);
+insert into fragmento (nombre,id_anime) values ('Grabadora portatil',21);
+insert into fragmento (nombre,id_anime) values ('Altercados',21);
+
+insert into fragmento (nombre,id_anime) values ('ZooNya',22);
+insert into fragmento (nombre,id_anime) values ('Araragi vs Hachikuji',22);
+
+insert into fragmento (nombre,id_anime) values ('Chicas magicas',24);
+
+insert into fragmento (nombre,id_anime) values ('Paquete',26);
+insert into fragmento (nombre,id_anime) values ('Ojete',26);
+insert into fragmento (nombre,id_anime) values ('The wizard',26);
+
+insert into fragmento (nombre,id_anime) values ('Tu hija',27);
+
+insert into fragmento (nombre,id_anime) values ('Alarma',28);
+insert into fragmento (nombre,id_anime) values ('Pesadas',28);
+
+insert into fragmento (nombre,id_anime) values ('Tutor',29);
+insert into fragmento (nombre,id_anime) values ('Marica',29);
+
+insert into fragmento (nombre,id_anime) values ('Club de teatro',30);
+insert into fragmento (nombre,id_anime) values ('Bollos',30);
+insert into fragmento (nombre,id_anime) values ('Nue',30);
+insert into fragmento (nombre,id_anime) values ('Varita',30);
+
+insert into fragmento (nombre,id_anime) values ('Aliens',32);
+
+insert into fragmento (nombre,id_anime) values ('Freddie',33);
+insert into fragmento (nombre,id_anime) values ('Tarareo',33);
+insert into fragmento (nombre,id_anime) values ('Mi nombre es',33);
+insert into fragmento (nombre,id_anime) values ('I want to break free',33);
+
+insert into fragmento (nombre,id_anime) values ('Faldas',34);
+insert into fragmento (nombre,id_anime) values ('Empuñadura',34);
+insert into fragmento (nombre,id_anime) values ('Chica equivocada',34);
+insert into fragmento (nombre,id_anime) values ('Lentillas',34);
+insert into fragmento (nombre,id_anime) values ('Cierre',34);
+insert into fragmento (nombre,id_anime) values ('Mochilas',34);
+insert into fragmento (nombre,id_anime) values ('Billetera robada',34);
+insert into fragmento (nombre,id_anime) values ('Carta de amor',34);
+insert into fragmento (nombre,id_anime) values ('La chica del tren',34);
+
+insert into fragmento (nombre,id_anime) values ('Rey demonio',35);
+
+insert into fragmento (nombre,id_anime) values ('Ave secular',36);
+insert into fragmento (nombre,id_anime) values ('Yo soy Jacky Chung',36);
+insert into fragmento (nombre,id_anime) values ('Arbol familiar',36);
+insert into fragmento (nombre,id_anime) values ('Piedrazo',36);
+insert into fragmento (nombre,id_anime) values ('Ninja purpura',36);
+insert into fragmento (nombre,id_anime) values ('Mocos',36);
+insert into fragmento (nombre,id_anime) values ('No acepto fallas',36);
+insert into fragmento (nombre,id_anime) values ('Expreso Tao Pai Pai',36);
+insert into fragmento (nombre,id_anime) values ('Huevo crudo',36);
+insert into fragmento (nombre,id_anime) values ('El baile del hombre vampiro',36);
+insert into fragmento (nombre,id_anime) values ('He dicho cosas bonitas',36);
+insert into fragmento (nombre,id_anime) values ('Niño ignorante',36);
+insert into fragmento (nombre,id_anime) values ('Hizo paz',36);
+insert into fragmento (nombre,id_anime) values ('El mundo de la maldad',36);
+
+insert into fragmento (nombre,id_anime) values ('Voluntad del macrocosmos',37);
+insert into fragmento (nombre,id_anime) values ('Excel buena vs Excel mala',37);
+insert into fragmento (nombre,id_anime) values ('Ruptura de cuello',37);
+insert into fragmento (nombre,id_anime) values ('Boliche humano',37);
+insert into fragmento (nombre,id_anime) values ('Dilatacion esporadica',37);
+insert into fragmento (nombre,id_anime) values ('Roppon matsu',37);
+insert into fragmento (nombre,id_anime) values ('Roppon matsu 2',37);
+insert into fragmento (nombre,id_anime) values ('Asesino',37);
+
+insert into fragmento (nombre,id_anime) values ('El salto del tren',38);
+insert into fragmento (nombre,id_anime) values ('Falsa alarma',38);
+insert into fragmento (nombre,id_anime) values ('Entre la espada y la pared',38);
+insert into fragmento (nombre,id_anime) values ('Steyr S.P.P.',38);
+insert into fragmento (nombre,id_anime) values ('El manejo de la linguistica',38);
+insert into fragmento (nombre,id_anime) values ('Subida al tren',38);
+insert into fragmento (nombre,id_anime) values ('Kobure sensei',38);
+insert into fragmento (nombre,id_anime) values ('La hora del almuerzo',38);
+insert into fragmento (nombre,id_anime) values ('Sagara vs Tsubaki',38);
+insert into fragmento (nombre,id_anime) values ('El bonta y su interprete',38);
+insert into fragmento (nombre,id_anime) values ('Richard Testarosa',38);
+insert into fragmento (nombre,id_anime) values ('Chidori vs Tessa',38);
+insert into fragmento (nombre,id_anime) values ('Panico el la pileta',38);
+insert into fragmento (nombre,id_anime) values ('Pequeño Kurz',38);
+insert into fragmento (nombre,id_anime) values ('Granada flash',38);
+insert into fragmento (nombre,id_anime) values ('La vacuna',38);
+
+insert into fragmento (nombre,id_anime) values ('La nave',40);
+insert into fragmento (nombre,id_anime) values ('Es por alla',40);
+
+insert into fragmento (nombre,id_anime) values ('Chupar mayonesa',43);
+insert into fragmento (nombre,id_anime) values ('El cartero',43);
+insert into fragmento (nombre,id_anime) values ('Acosador',43);
+insert into fragmento (nombre,id_anime) values ('Sadaharu',43);
+insert into fragmento (nombre,id_anime) values ('Se come a la gente',43);
+insert into fragmento (nombre,id_anime) values ('Continente de Mu',43);
+insert into fragmento (nombre,id_anime) values ('Esposa ninja',43);
+insert into fragmento (nombre,id_anime) values ('Cucaracha',43);
+insert into fragmento (nombre,id_anime) values ('Escandalo',43);
+insert into fragmento (nombre,id_anime) values ('Just a way',43);
+insert into fragmento (nombre,id_anime) values ('Olvide algo',43);
+
+insert into fragmento (nombre,id_anime) values ('La madre de Kunio',46);
+insert into fragmento (nombre,id_anime) values ('Ninja Onizuka',46);
+insert into fragmento (nombre,id_anime) values ('Cobra reina',46);
+insert into fragmento (nombre,id_anime) values ('Proximamente en los mejores cines',46);
+insert into fragmento (nombre,id_anime) values ('Estudio amoroso',46);
+insert into fragmento (nombre,id_anime) values ('Ojos de atun',46);
+insert into fragmento (nombre,id_anime) values ('La serpiente',46);
+
+insert into fragmento (nombre,id_anime) values ('Sentimiento mutuo',48);
+insert into fragmento (nombre,id_anime) values ('Shanta-kun',48);
+
+insert into fragmento (nombre,id_anime) values ('Taxi',49);
+
+insert into fragmento (nombre,id_anime) values ('Riko',50);
+insert into fragmento (nombre,id_anime) values ('Eh!',50);
+
+insert into fragmento (nombre,id_anime) values ('Enterrando a Kaede',51);
+insert into fragmento (nombre,id_anime) values ('Ambiente ameno',51);
+insert into fragmento (nombre,id_anime) values ('Miroku se recupera',51);
+insert into fragmento (nombre,id_anime) values ('Charla de chicas',51);
+insert into fragmento (nombre,id_anime) values ('La roca',51);
+insert into fragmento (nombre,id_anime) values ('Dos Mirokus',51);
+insert into fragmento (nombre,id_anime) values ('Agujero limpiador',51);
+insert into fragmento (nombre,id_anime) values ('Monje loco',51);
+
+insert into fragmento (nombre,id_anime) values ('Nube vs Fox',52);
+
+insert into fragmento (nombre,id_anime) values ('Flores',54);
+
+insert into fragmento (nombre,id_anime) values ('Inscripcion',90);
+insert into fragmento (nombre,id_anime) values ('Viejos malolientes',90);
+insert into fragmento (nombre,id_anime) values ('Latigazos',90);
+insert into fragmento (nombre,id_anime) values ('Kung-fu cena',90);
+insert into fragmento (nombre,id_anime) values ('Nueces',90);
+
+insert into fragmento (nombre,id_anime) values ('Mi padre',55);
+
+insert into fragmento (nombre,id_anime) values ('Globo',56);
+insert into fragmento (nombre,id_anime) values ('Esper',56);
+insert into fragmento (nombre,id_anime) values ('Ojo',56);
+insert into fragmento (nombre,id_anime) values ('Asesino',56);
+insert into fragmento (nombre,id_anime) values ('Bichos',56);
+insert into fragmento (nombre,id_anime) values ('Perro',56);
+insert into fragmento (nombre,id_anime) values ('Titeres',56);
+
+insert into fragmento (nombre,id_anime) values ('Cuatro brazos',53);
+insert into fragmento (nombre,id_anime) values ('Formulario',53);
+insert into fragmento (nombre,id_anime) values ('Letra',53);
+insert into fragmento (nombre,id_anime) values ('Zumo',53);
+
+insert into fragmento (nombre,id_anime) values ('Examen medico',57);
+insert into fragmento (nombre,id_anime) values ('Golden week',57);
+insert into fragmento (nombre,id_anime) values ('Seguidilla de idioteces',57);
+insert into fragmento (nombre,id_anime) values ('Lucky channel',57);
+insert into fragmento (nombre,id_anime) values ('Uniforme de verano',57);
+insert into fragmento (nombre,id_anime) values ('Tren caluroso',57);
+insert into fragmento (nombre,id_anime) values ('Maldita burguesa',57);
+insert into fragmento (nombre,id_anime) values ('Celular nuevo',57);
+insert into fragmento (nombre,id_anime) values ('Segundo celular',57);
+insert into fragmento (nombre,id_anime) values ('La madre de Konata',57);
+insert into fragmento (nombre,id_anime) values ('Chocolate de San Valentin',57);
+insert into fragmento (nombre,id_anime) values ('Electricidad estatica',57);
+insert into fragmento (nombre,id_anime) values ('Domingo perdido',57);
+insert into fragmento (nombre,id_anime) values ('Ayuda de las sempais',57);
+insert into fragmento (nombre,id_anime) values ('Preguntale a la profesora',57);
+insert into fragmento (nombre,id_anime) values ('Caras',57);
+insert into fragmento (nombre,id_anime) values ('La mano de un artista',57);
+insert into fragmento (nombre,id_anime) values ('Fantasia de altura',57);
+insert into fragmento (nombre,id_anime) values ('Mosquito',57);
+insert into fragmento (nombre,id_anime) values ('Fabricar recuerdos',57);
+insert into fragmento (nombre,id_anime) values ('Ideas perdidas',57);
+insert into fragmento (nombre,id_anime) values ('Alimentando a los animales',57);
+insert into fragmento (nombre,id_anime) values ('Mantenimiento de emergencia',57);
+insert into fragmento (nombre,id_anime) values ('Copiando imagenes',57);
+insert into fragmento (nombre,id_anime) values ('Minami y compania',57);
+insert into fragmento (nombre,id_anime) values ('Entrada de blog',57);
+insert into fragmento (nombre,id_anime) values ('Enter para hablar',57);
+
+insert into fragmento (nombre,id_anime) values ('Espia',58);
+insert into fragmento (nombre,id_anime) values ('Cateador',58);
+insert into fragmento (nombre,id_anime) values ('Profesor particular',58);
+insert into fragmento (nombre,id_anime) values ('Declaracion',58);
+insert into fragmento (nombre,id_anime) values ('Ruidos nocturnos',58);
+insert into fragmento (nombre,id_anime) values ('Lastre',58);
+
+insert into fragmento (nombre,id_anime) values ('Señas de baseball',61);
+
+insert into fragmento (nombre,id_anime) values ('Ping Pong',63);
+
+insert into fragmento (nombre,id_anime) values ('El Dr Caos en el baño',42);
+insert into fragmento (nombre,id_anime) values ('Yokoshima vs Maria',42);
+
+insert into fragmento (nombre,id_anime) values ('Puño del rey',67);
+insert into fragmento (nombre,id_anime) values ('Trenes',67);
+insert into fragmento (nombre,id_anime) values ('Veneno',67);
+
+insert into fragmento (nombre,id_anime) values ('Ninomiya-kun & Sensei',64);
+insert into fragmento (nombre,id_anime) values ('Manguera',64);
+
+insert into fragmento (nombre,id_anime) values ('Asesino',65);
+
+insert into fragmento (nombre,id_anime) values ('Hokuto no ken',68);
+insert into fragmento (nombre,id_anime) values ('El balon es mi amigo',68);
+insert into fragmento (nombre,id_anime) values ('Hiten mitsurugi',68);
+insert into fragmento (nombre,id_anime) values ('Meteoro de pegaso',68);
+insert into fragmento (nombre,id_anime) values ('Leche vencida',68);
+insert into fragmento (nombre,id_anime) values ('Estoy desesperado',68);
+insert into fragmento (nombre,id_anime) values ('No lei nada',68);
+
+insert into fragmento (nombre,id_anime) values ('Chupacabra',69);
+insert into fragmento (nombre,id_anime) values ('The book of thoughts',69);
+
+insert into fragmento (nombre,id_anime) values ('Plebeyos',70);
+insert into fragmento (nombre,id_anime) values ('Dios ha muerto',70);
+
+insert into fragmento (nombre,id_anime) values ('Gusto a mierda',71);
+
+insert into fragmento (nombre,id_anime) values ('Entonces moriras',72);
+
+insert into fragmento (nombre,id_anime) values ('Celos',73);
+insert into fragmento (nombre,id_anime) values ('Los deseos de mama',73);
+
+insert into fragmento (nombre,id_anime) values ('Homosexuales',74);
+
+insert into fragmento (nombre,id_anime) values ('Comida para Genma',76);
+insert into fragmento (nombre,id_anime) values ('La risa de Kuno',76);
+insert into fragmento (nombre,id_anime) values ('Colchon mojado',76);
+insert into fragmento (nombre,id_anime) values ('La muñeca de Kuno',76);
+insert into fragmento (nombre,id_anime) values ('La desicion de Kuno',76);
+insert into fragmento (nombre,id_anime) values ('La visita de Kasumi',76);
+insert into fragmento (nombre,id_anime) values ('El relato amoroso de Genma',76);
+insert into fragmento (nombre,id_anime) values ('Ryoga en medio del partido',76);
+insert into fragmento (nombre,id_anime) values ('La pesa y el ladron',76);
+insert into fragmento (nombre,id_anime) values ('Tendo y Ryoga en la bañera',76);
+insert into fragmento (nombre,id_anime) values ('El beso de la muerte',76);
+insert into fragmento (nombre,id_anime) values ('El manual de la tribu',76);
+insert into fragmento (nombre,id_anime) values ('Asusa & Charlotte',76);
+insert into fragmento (nombre,id_anime) values ('Asusa & Francois',76);
+insert into fragmento (nombre,id_anime) values ('Ranma y Ryoga jum jum jum',76);
+insert into fragmento (nombre,id_anime) values ('Magic water',76);
+insert into fragmento (nombre,id_anime) values ('Asusa punch',76);
+insert into fragmento (nombre,id_anime) values ('Guiso de P-chan',76);
+insert into fragmento (nombre,id_anime) values ('La comida de la montaña',76);
+insert into fragmento (nombre,id_anime) values ('El mas reciente truco secreto Saotome',76);
+insert into fragmento (nombre,id_anime) values ('Ataque al vestidor de mujeres',76);
+insert into fragmento (nombre,id_anime) values ('Las galletas de Akane',76);
+insert into fragmento (nombre,id_anime) values ('Romeo y Julieta',76);
+insert into fragmento (nombre,id_anime) values ('Tsubasa',76);
+insert into fragmento (nombre,id_anime) values ('Breve explicacion',76);
+insert into fragmento (nombre,id_anime) values ('Trabajar para comer',76);
+insert into fragmento (nombre,id_anime) values ('El pasado de Happosai',76);
+insert into fragmento (nombre,id_anime) values ('El ataque del dragon',76);
+insert into fragmento (nombre,id_anime) values ('Soun quedo atras',76);
+insert into fragmento (nombre,id_anime) values ('Ryoga trama algo',76);
+insert into fragmento (nombre,id_anime) values ('El tigre caido',76);
+insert into fragmento (nombre,id_anime) values ('El secreto de Ryoga',76);
+insert into fragmento (nombre,id_anime) values ('El vestido de la abuela',76);
+insert into fragmento (nombre,id_anime) values ('Juego de cartas',76);
+insert into fragmento (nombre,id_anime) values ('El manantial del amor',76);
+insert into fragmento (nombre,id_anime) values ('Estas muy gorda',76);
+insert into fragmento (nombre,id_anime) values ('Escualo',76);
+insert into fragmento (nombre,id_anime) values ('El nado de Kuno',76);
+insert into fragmento (nombre,id_anime) values ('El nado del cisne',76);
+insert into fragmento (nombre,id_anime) values ('La ropa de Nabiki',76);
+insert into fragmento (nombre,id_anime) values ('Sobres magicos',76);
+insert into fragmento (nombre,id_anime) values ('Kuno pierde la memoria',76);
+insert into fragmento (nombre,id_anime) values ('Pantimedias Taro 1',76);
+insert into fragmento (nombre,id_anime) values ('Union de fuerzas',76);
+insert into fragmento (nombre,id_anime) values ('Pantimedias Taro 2',76);
+insert into fragmento (nombre,id_anime) values ('Akane en el hospital',76);
+insert into fragmento (nombre,id_anime) values ('Panda pintado',76);
+insert into fragmento (nombre,id_anime) values ('Salsa de amor 1',76);
+insert into fragmento (nombre,id_anime) values ('Salsa de amor 2',76);
+insert into fragmento (nombre,id_anime) values ('Falsos esposos',76);
+insert into fragmento (nombre,id_anime) values ('Pegado al maestro',76);
+insert into fragmento (nombre,id_anime) values ('Akane doll',76);
+insert into fragmento (nombre,id_anime) values ('Tartas de amor',76);
+insert into fragmento (nombre,id_anime) values ('La guerra de los Kuno',76);
+insert into fragmento (nombre,id_anime) values ('Nunca tendras mi corazon',76);
+insert into fragmento (nombre,id_anime) values ('Guerra en la cocina',76);
+insert into fragmento (nombre,id_anime) values ('Miss Hinako',76);
+insert into fragmento (nombre,id_anime) values ('Estupidas trampas',76);
+insert into fragmento (nombre,id_anime) values ('Cambio de cuerpo',76);
+
+insert into fragmento (nombre,id_anime) values ('Je taime',77);
+insert into fragmento (nombre,id_anime) values ('Educacion sexual',77);
+insert into fragmento (nombre,id_anime) values ('Mi primer...',77);
+
+insert into fragmento (nombre,id_anime) values ('Abrir la puerta',78);
+insert into fragmento (nombre,id_anime) values ('Ladron',78);
+insert into fragmento (nombre,id_anime) values ('Esfuerzo',78);
+insert into fragmento (nombre,id_anime) values ('Los enemigos de la Rozen Maiden',78);
+insert into fragmento (nombre,id_anime) values ('Mejor que Kun-Kun',78);
+
+insert into fragmento (nombre,id_anime) values ('Saito vs Misao',79);
+insert into fragmento (nombre,id_anime) values ('La esposa de Saito',79);
+
+insert into fragmento (nombre,id_anime) values ('El poder de la cobra',81);
+insert into fragmento (nombre,id_anime) values ('Es un pegaso',81);
+insert into fragmento (nombre,id_anime) values ('Error de calculo',81);
+insert into fragmento (nombre,id_anime) values ('No pasaran',81);
+insert into fragmento (nombre,id_anime) values ('Todo ha terminado para ti',81);
+insert into fragmento (nombre,id_anime) values ('Saga combo',81);
+insert into fragmento (nombre,id_anime) values ('Garra de tigre viquingo',81);
+insert into fragmento (nombre,id_anime) values ('Espada Odin',81);
+insert into fragmento (nombre,id_anime) values ('La balsa',81);
+
+insert into fragmento (nombre,id_anime) values ('El encargo a Mugen',82);
+insert into fragmento (nombre,id_anime) values ('El diario de Fuu',82);
+insert into fragmento (nombre,id_anime) values ('Luna letal',82);
+insert into fragmento (nombre,id_anime) values ('Los consejos del monje',82);
+insert into fragmento (nombre,id_anime) values ('Lucha de escarabajos',82);
+insert into fragmento (nombre,id_anime) values ('Rana',82);
+insert into fragmento (nombre,id_anime) values ('Jin de pesca',82);
+insert into fragmento (nombre,id_anime) values ('Geishas',82);
+insert into fragmento (nombre,id_anime) values ('Musashi Miyamoto',82);
+insert into fragmento (nombre,id_anime) values ('Baseball',82);
+
+insert into fragmento (nombre,id_anime) values ('Hacerse mas alto',83);
+insert into fragmento (nombre,id_anime) values ('Frutillas',83);
+insert into fragmento (nombre,id_anime) values ('Acosadores',83);
+insert into fragmento (nombre,id_anime) values ('Death Note',83);
+insert into fragmento (nombre,id_anime) values ('Imigrantes ilegales',83);
+insert into fragmento (nombre,id_anime) values ('Investigacion preliminar',83);
+insert into fragmento (nombre,id_anime) values ('Casualmente',83);
+insert into fragmento (nombre,id_anime) values ('Distracciones',83);
+
+insert into fragmento (nombre,id_anime) values ('El efecto del puente suspendido',84);
+insert into fragmento (nombre,id_anime) values ('Quien le gusta a Tenma',84);
+insert into fragmento (nombre,id_anime) values ('Jocky de pileta',84);
+insert into fragmento (nombre,id_anime) values ('Declaracion erronea',84);
+insert into fragmento (nombre,id_anime) values ('Las cartas de Harima',84);
+insert into fragmento (nombre,id_anime) values ('Natacion',84);
+insert into fragmento (nombre,id_anime) values ('Buscando el traje de baño',84);
+insert into fragmento (nombre,id_anime) values ('Imadori y Mikoto atrapados',84);
+insert into fragmento (nombre,id_anime) values ('Lucha nocturna',84);
+insert into fragmento (nombre,id_anime) values ('La cita de Ichijou',84);
+insert into fragmento (nombre,id_anime) values ('Lo has visto',84);
+insert into fragmento (nombre,id_anime) values ('Harima vs Iori',84);
+insert into fragmento (nombre,id_anime) values ('Coincidencia casual',84);
+insert into fragmento (nombre,id_anime) values ('Ve a comprarme un te',84);
+insert into fragmento (nombre,id_anime) values ('Niño maleducado',84);
+insert into fragmento (nombre,id_anime) values ('Espiados',84);
+insert into fragmento (nombre,id_anime) values ('Peligroso almuerzo con Lala',84);
+insert into fragmento (nombre,id_anime) values ('Afeitada',84);
+insert into fragmento (nombre,id_anime) values ('Carrera de relevos',84);
+insert into fragmento (nombre,id_anime) values ('Bendito y maldito',84);
+insert into fragmento (nombre,id_anime) values ('Similitudes',84);
+insert into fragmento (nombre,id_anime) values ('La ayuda de Yakumo',84);
+insert into fragmento (nombre,id_anime) values ('Limusina',84);
+insert into fragmento (nombre,id_anime) values ('Cafe cosplay',84);
+insert into fragmento (nombre,id_anime) values ('Zombies del amor',84);
+insert into fragmento (nombre,id_anime) values ('Onigiris mortales',84);
+insert into fragmento (nombre,id_anime) values ('Onigiris',84);
+insert into fragmento (nombre,id_anime) values ('Hanai XXX',84);
+insert into fragmento (nombre,id_anime) values ('Los gustos de Harima',84);
+insert into fragmento (nombre,id_anime) values ('Resultado de la publicacion',84);
+insert into fragmento (nombre,id_anime) values ('Propuestas para la obra',84);
+insert into fragmento (nombre,id_anime) values ('Tienda del club de te',84);
+insert into fragmento (nombre,id_anime) values ('El nivel de Jordan',84);
+insert into fragmento (nombre,id_anime) values ('Solo una torcedura',84);
+insert into fragmento (nombre,id_anime) values ('Olla mortal',84);
+insert into fragmento (nombre,id_anime) values ('Tecnico-san',84);
+insert into fragmento (nombre,id_anime) values ('El novio de mi hermana',84);
+insert into fragmento (nombre,id_anime) values ('Arreglando el manga',84);
+
+insert into fragmento (nombre,id_anime) values ('Reproches',85);
+
+insert into fragmento (nombre,id_anime) values ('Hacerse cargo',86);
+insert into fragmento (nombre,id_anime) values ('Mano mortal',86);
+insert into fragmento (nombre,id_anime) values ('Cuidado con el agua',86);
+insert into fragmento (nombre,id_anime) values ('Anillo',86);
+insert into fragmento (nombre,id_anime) values ('Sin Maki',86);
+insert into fragmento (nombre,id_anime) values ('Viviendo juntos',86);
+insert into fragmento (nombre,id_anime) values ('Luna-chan',86);
+insert into fragmento (nombre,id_anime) values ('Lirica del sueño',86);
+insert into fragmento (nombre,id_anime) values ('El papa de Luna',86);
+insert into fragmento (nombre,id_anime) values ('El segundo beso',86);
+insert into fragmento (nombre,id_anime) values ('Secando a Luna',86);
+insert into fragmento (nombre,id_anime) values ('Señal peligrosa',86);
+insert into fragmento (nombre,id_anime) values ('Confesion erronea',86);
+insert into fragmento (nombre,id_anime) values ('Amor prohibido',86);
+insert into fragmento (nombre,id_anime) values ('Sacando entradas',86);
+
+insert into fragmento (nombre,id_anime) values ('Espera afuera',87);
+insert into fragmento (nombre,id_anime) values ('Reorganizar',87);
+
+insert into fragmento (nombre,id_anime) values ('Billy',88);
+insert into fragmento (nombre,id_anime) values ('Billy regresa',88);
+insert into fragmento (nombre,id_anime) values ('Billy perdido',88);
+
+insert into fragmento (nombre,id_anime) values ('De ti no, de Mikasa',91);
+insert into fragmento (nombre,id_anime) values ('Papa',91);
+insert into fragmento (nombre,id_anime) values ('Confianza',91);
+insert into fragmento (nombre,id_anime) values ('Soldado de verdad',91);
+insert into fragmento (nombre,id_anime) values ('Pedo de Sasha',91);
+
+insert into fragmento (nombre,id_anime) values ('Ring raje',92);
+
+insert into fragmento (nombre,id_anime) values ('Genesis',93);
+insert into fragmento (nombre,id_anime) values ('J-son sensei',93);
+insert into fragmento (nombre,id_anime) values ('Dante',93);
+insert into fragmento (nombre,id_anime) values ('Algas kombu',93);
+
+insert into fragmento (nombre,id_anime) values ('Entrar al equipo',94);
+insert into fragmento (nombre,id_anime) values ('La realidad',94);
+insert into fragmento (nombre,id_anime) values ('Partido de practica',94);
+insert into fragmento (nombre,id_anime) values ('Bandeja',94);
+insert into fragmento (nombre,id_anime) values ('Titulares y uniformes',94);
+insert into fragmento (nombre,id_anime) values ('Disco rayado',94);
+insert into fragmento (nombre,id_anime) values ('A Rukawa nunca',94);
+insert into fragmento (nombre,id_anime) values ('Sho... Shohoku',94);
+insert into fragmento (nombre,id_anime) values ('Patada',94);
+insert into fragmento (nombre,id_anime) values ('Gori',94);
+
+insert into fragmento (nombre,id_anime) values ('Vampirismo',95);
+
+insert into fragmento (nombre,id_anime) values ('Petardos',96);
+insert into fragmento (nombre,id_anime) values ('Baseball',96);
+insert into fragmento (nombre,id_anime) values ('Informacion clasificada',96);
+
+insert into fragmento (nombre,id_anime) values ('Canibalismo',97);
+
+insert into fragmento (nombre,id_anime) values ('Mi primer chico',98);
+insert into fragmento (nombre,id_anime) values ('Hasta el amanecer',98);
+insert into fragmento (nombre,id_anime) values ('Hermana',98);
+
+insert into fragmento (nombre,id_anime) values ('Merle',99);
+
+insert into fragmento (nombre,id_anime) values ('Hija no legitima',100);
+insert into fragmento (nombre,id_anime) values ('Bug',100);
+
+insert into fragmento (nombre,id_anime) values ('Papel sanitario',101);
+insert into fragmento (nombre,id_anime) values ('Geocentrismo',101);
+
+insert into fragmento (nombre,id_anime) values ('Ventana',102);
+insert into fragmento (nombre,id_anime) values ('Dormir juntos',102);
+insert into fragmento (nombre,id_anime) values ('Delegada',102);
+
+insert into fragmento (nombre,id_anime) values ('Titan',103);
+
+insert into fragmento (nombre,id_anime) values ('Peleando con los osos',105);
+insert into fragmento (nombre,id_anime) values ('Medio muerto',105);
+insert into fragmento (nombre,id_anime) values ('Me gustan todas',105);
+insert into fragmento (nombre,id_anime) values ('Harakiri',105);
+insert into fragmento (nombre,id_anime) values ('La cara de Mendo',105);
+insert into fragmento (nombre,id_anime) values ('Reunion de padres',105);
+insert into fragmento (nombre,id_anime) values ('Dia de las muñecas',105);
+
+insert into fragmento (nombre,id_anime) values ('Coming soon',107);
+
+insert into fragmento (nombre,id_anime) values ('Super Santa Claus',109);
+insert into fragmento (nombre,id_anime) values ('Bajar pantalones',109);
+insert into fragmento (nombre,id_anime) values ('El cartero',109);
+insert into fragmento (nombre,id_anime) values ('Rival',109);
+
+insert into fragmento (nombre,id_anime) values ('Vacio magico',110);
+insert into fragmento (nombre,id_anime) values ('Esperando a Saito',110);
+
+------------------------------------------------------------------------------------
+
+update anime
+set terminado = true
+where (id = 24);
+
+update anime
+set terminado = true
+where (id = 35);
+
+update anime
+set terminado = true
+where (id = 42);
+
+update anime
+set terminado = true
+where (id = 46);
+
+update anime
+set terminado = true
+where (id = 52);
+
+update anime
+set terminado = true
+where (id = 61);
+
+update anime
+set terminado = true
+where (id = 67);
+
+update anime
+set terminado = true
+where (id = 69);
+
+update anime
+set terminado = true
+where (id = 72);
+
+update anime
+set terminado = true
+where (id = 73);
+
+update anime
+set terminado = true
+where (id = 74);
+
+update anime
+set terminado = true
+where (id = 77);
+
+update anime
+set terminado = true
+where (id = 78);
+
+update anime
+set terminado = true
+where (id = 79);
+
+update anime
+set terminado = true
+where (id = 90);
+
+update anime
+set terminado = true
+where (id = 96);
+
+update anime
+set terminado = true
+where (id = 110);
+
+update anime
+set terminado = true
+where (id = 15);
+
+update anime
+set terminado = true
+where (id = 16);
+
+update anime
+set terminado = true
+where (id = 17);
+
+update anime
+set terminado = true
+where (id = 26);
+
+update anime
+set terminado = true
+where (id = 27);
+
+update anime
+set terminado = true
+where (id = 28);
+
+update anime
+set terminado = true
+where (id = 32);
+
+update anime
+set terminado = true
+where (id = 33);
+
+update anime
+set terminado = true
+where (id = 40);
+
+update anime
+set terminado = true
+where (id = 49);
+
+update anime
+set terminado = true
+where (id = 50);
+
+update anime
+set terminado = true
+where (id = 54);
+
+update anime
+set terminado = true
+where (id = 65);
+
+update anime
+set terminado = true
+where (id = 71);
+
+update anime
+set terminado = true
+where (id = 88);
+
+update anime
+set terminado = true
+where (id = 95);
+
+update anime
+set terminado = true
+where (id = 97);
+
+update anime
+set terminado = true
+where (id = 98);
+
+update anime
+set terminado = true
+where (id = 103);
+
+update anime
+set terminado = true
+where (id = 107);
+
+update anime
+set terminado = true
+where (id = 14);
+
+update anime
+set terminado = true
+where (id = 18);
+
+update anime
+set terminado = true
+where (id = 34);
+
+update anime
+set terminado = true
+where (id = 37);
+
+update anime
+set terminado = true
+where (id = 81);
+
+update anime
+set terminado = true
+where (id = 82);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 5
+where (id = 124);
+
+update fragmento
+set id_capitulo = 5
+where (id = 147);
+
+update fragmento
+set id_capitulo = 5
+where (id = 149);
+
+update fragmento
+set id_capitulo = 5
+where (id = 199);
+
+update fragmento
+set id_capitulo = 5
+where (id = 228);
+
+update fragmento
+set id_capitulo = 5
+where (id = 240);
+
+update fragmento
+set id_capitulo = 5
+where (id = 248);
+
+update fragmento
+set id_capitulo = 5
+where (id = 250);
+
+update fragmento
+set id_capitulo = 5
+where (id = 272);
+
+update fragmento
+set id_capitulo = 5
+where (id = 299);
+
+update fragmento
+set id_capitulo = 5
+where (id = 305);
+
+update fragmento
+set id_capitulo = 5
+where (id = 307);
+
+update fragmento
+set id_capitulo = 5
+where (id = 309);
+
+update fragmento
+set id_capitulo = 5
+where (id = 322);
+
+update fragmento
+set id_capitulo = 5
+where (id = 330);
+
+update fragmento
+set id_capitulo = 5
+where (id = 331);
+
+update fragmento
+set id_capitulo = 5
+where (id = 390);
+
+update fragmento
+set id_capitulo = 5
+where (id = 393);
+
+update fragmento
+set id_capitulo = 5
+where (id = 398);
+
+update fragmento
+set id_capitulo = 5
+where (id = 400);
+
+update fragmento
+set id_capitulo = 5
+where (id = 409);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 6
+where (id = 427);
+
+update fragmento
+set id_capitulo = 6
+where (id = 496);
+
+update fragmento
+set id_capitulo = 6
+where (id = 507);
+
+update fragmento
+set id_capitulo = 6
+where (id = 531);
+
+update fragmento
+set id_capitulo = 6
+where (id = 125);
+
+update fragmento
+set id_capitulo = 6
+where (id = 148);
+
+update fragmento
+set id_capitulo = 6
+where (id = 176);
+
+update fragmento
+set id_capitulo = 6
+where (id = 191);
+
+update fragmento
+set id_capitulo = 6
+where (id = 200);
+
+update fragmento
+set id_capitulo = 6
+where (id = 217);
+
+update fragmento
+set id_capitulo = 6
+where (id = 229);
+
+update fragmento
+set id_capitulo = 6
+where (id = 241);
+
+update fragmento
+set id_capitulo = 6
+where (id = 251);
+
+update fragmento
+set id_capitulo = 6
+where (id = 273);
+
+update fragmento
+set id_capitulo = 6
+where (id = 300);
+
+update fragmento
+set id_capitulo = 6
+where (id = 308);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 7
+where (id = 310);
+
+update fragmento
+set id_capitulo = 7
+where (id = 315);
+
+update fragmento
+set id_capitulo = 7
+where (id = 323);
+
+update fragmento
+set id_capitulo = 7
+where (id = 327);
+
+update fragmento
+set id_capitulo = 7
+where (id = 328);
+
+update fragmento
+set id_capitulo = 7
+where (id = 332);
+
+update fragmento
+set id_capitulo = 7
+where (id = 391);
+
+update fragmento
+set id_capitulo = 7
+where (id = 394);
+
+update fragmento
+set id_capitulo = 7
+where (id = 399);
+
+update fragmento
+set id_capitulo = 7
+where (id = 401);
+
+update fragmento
+set id_capitulo = 7
+where (id = 410);
+
+update fragmento
+set id_capitulo = 7
+where (id = 428);
+
+update fragmento
+set id_capitulo = 7
+where (id = 497);
+
+update fragmento
+set id_capitulo = 7
+where (id = 508);
+
+update fragmento
+set id_capitulo = 7
+where (id = 535);
+
+update fragmento
+set id_capitulo = 7
+where (id = 112);
+
+update fragmento
+set id_capitulo = 7
+where (id = 126);
+
+update fragmento
+set id_capitulo = 7
+where (id = 139);
+
+update fragmento
+set id_capitulo = 7
+where (id = 167);
+
+update fragmento
+set id_capitulo = 7
+where (id = 177);
+
+update fragmento
+set id_capitulo = 7
+where (id = 192);
+
+update fragmento
+set id_capitulo = 7
+where (id = 201);
+
+update fragmento
+set id_capitulo = 7
+where (id = 218);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 8
+where (id = 230);
+
+update fragmento
+set id_capitulo = 8
+where (id = 242);
+
+update fragmento
+set id_capitulo = 8
+where (id = 252);
+
+update fragmento
+set id_capitulo = 8
+where (id = 274);
+
+update fragmento
+set id_capitulo = 8
+where (id = 301);
+
+update fragmento
+set id_capitulo = 8
+where (id = 311);
+
+update fragmento
+set id_capitulo = 8
+where (id = 316);
+
+update fragmento
+set id_capitulo = 8
+where (id = 333);
+
+update fragmento
+set id_capitulo = 8
+where (id = 392);
+
+update fragmento
+set id_capitulo = 8
+where (id = 395);
+
+update fragmento
+set id_capitulo = 8
+where (id = 402);
+
+update fragmento
+set id_capitulo = 8
+where (id = 411);
+
+update fragmento
+set id_capitulo = 8
+where (id = 429);
+
+update fragmento
+set id_capitulo = 8
+where (id = 466);
+
+update fragmento
+set id_capitulo = 8
+where (id = 498);
+
+update fragmento
+set id_capitulo = 8
+where (id = 509);
+
+update fragmento
+set id_capitulo = 8
+where (id = 113);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 9
+where (id = 127);
+
+update fragmento
+set id_capitulo = 9
+where (id = 140);
+
+update fragmento
+set id_capitulo = 9
+where (id = 168);
+
+update fragmento
+set id_capitulo = 9
+where (id = 178);
+
+update fragmento
+set id_capitulo = 9
+where (id = 193);
+
+update fragmento
+set id_capitulo = 9
+where (id = 202);
+
+update fragmento
+set id_capitulo = 9
+where (id = 219);
+
+update fragmento
+set id_capitulo = 9
+where (id = 231);
+
+update fragmento
+set id_capitulo = 9
+where (id = 243);
+
+update fragmento
+set id_capitulo = 9
+where (id = 253);
+
+update fragmento
+set id_capitulo = 9
+where (id = 275);
+
+update fragmento
+set id_capitulo = 9
+where (id = 317);
+
+update fragmento
+set id_capitulo = 9
+where (id = 334);
+
+update fragmento
+set id_capitulo = 9
+where (id = 396);
+
+update fragmento
+set id_capitulo = 9
+where (id = 467);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 10
+where (id = 302);
+
+update fragmento
+set id_capitulo = 10
+where (id = 318);
+
+update fragmento
+set id_capitulo = 10
+where (id = 329);
+
+update fragmento
+set id_capitulo = 10
+where (id = 335);
+
+update fragmento
+set id_capitulo = 10
+where (id = 403);
+
+update fragmento
+set id_capitulo = 10
+where (id = 412);
+
+update fragmento
+set id_capitulo = 10
+where (id = 430);
+
+update fragmento
+set id_capitulo = 10
+where (id = 468);
+
+update fragmento
+set id_capitulo = 10
+where (id = 523);
+
+update fragmento
+set id_capitulo = 10
+where (id = 128);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 11
+where (id = 141);
+
+update fragmento
+set id_capitulo = 11
+where (id = 179);
+
+update fragmento
+set id_capitulo = 11
+where (id = 220);
+
+update fragmento
+set id_capitulo = 11
+where (id = 254);
+
+update fragmento
+set id_capitulo = 11
+where (id = 203);
+
+update fragmento
+set id_capitulo = 11
+where (id = 276);
+
+update fragmento
+set id_capitulo = 11
+where (id = 169);
+
+update fragmento
+set id_capitulo = 11
+where (id = 158);
+
+update fragmento
+set id_capitulo = 11
+where (id = 244);
+
+update fragmento
+set id_capitulo = 11
+where (id = 492);
+
+update fragmento
+set id_capitulo = 11
+where (id = 499);
+
+update fragmento
+set id_capitulo = 11
+where (id = 404);
+
+update fragmento
+set id_capitulo = 11
+where (id = 419);
+
+update fragmento
+set id_capitulo = 11
+where (id = 413);
+
+update fragmento
+set id_capitulo = 11
+where (id = 232);
+
+update fragmento
+set id_capitulo = 11
+where (id = 336);
+
+update fragmento
+set id_capitulo = 11
+where (id = 469);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 12
+where (id = 221);
+
+update fragmento
+set id_capitulo = 12
+where (id = 500);
+
+update fragmento
+set id_capitulo = 12
+where (id = 414);
+
+update fragmento
+set id_capitulo = 12
+where (id = 277);
+
+update fragmento
+set id_capitulo = 12
+where (id = 233);
+
+update fragmento
+set id_capitulo = 12
+where (id = 337);
+
+update fragmento
+set id_capitulo = 12
+where (id = 159);
+
+update fragmento
+set id_capitulo = 12
+where (id = 142);
+
+update fragmento
+set id_capitulo = 12
+where (id = 245);
+
+update fragmento
+set id_capitulo = 12
+where (id = 194);
+
+update fragmento
+set id_capitulo = 12
+where (id = 129);
+
+update fragmento
+set id_capitulo = 12
+where (id = 524);
+
+update fragmento
+set id_capitulo = 12
+where (id = 170);
+
+update fragmento
+set id_capitulo = 12
+where (id = 420);
+
+update fragmento
+set id_capitulo = 12
+where (id = 405);
+
+update fragmento
+set id_capitulo = 12
+where (id = 431);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 13
+where (id = 470);
+
+update fragmento
+set id_capitulo = 13
+where (id = 130);
+
+update fragmento
+set id_capitulo = 13
+where (id = 406);
+
+update fragmento
+set id_capitulo = 13
+where (id = 222);
+
+update fragmento
+set id_capitulo = 13
+where (id = 432);
+
+update fragmento
+set id_capitulo = 13
+where (id = 397);
+
+update fragmento
+set id_capitulo = 13
+where (id = 195);
+
+update fragmento
+set id_capitulo = 13
+where (id = 204);
+
+update fragmento
+set id_capitulo = 13
+where (id = 122);
+
+update fragmento
+set id_capitulo = 13
+where (id = 278);
+
+update fragmento
+set id_capitulo = 13
+where (id = 415);
+
+update fragmento
+set id_capitulo = 13
+where (id = 536);
+
+update fragmento
+set id_capitulo = 13
+where (id = 338);
+
+update fragmento
+set id_capitulo = 13
+where (id = 114);
+
+update fragmento
+set id_capitulo = 13
+where (id = 171);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 14
+where (id = 205);
+
+update fragmento
+set id_capitulo = 14
+where (id = 303);
+
+update fragmento
+set id_capitulo = 14
+where (id = 416);
+
+update fragmento
+set id_capitulo = 14
+where (id = 279);
+
+update fragmento
+set id_capitulo = 14
+where (id = 180);
+
+update fragmento
+set id_capitulo = 14
+where (id = 160);
+
+update fragmento
+set id_capitulo = 14
+where (id = 525);
+
+update fragmento
+set id_capitulo = 14
+where (id = 234);
+
+update fragmento
+set id_capitulo = 14
+where (id = 143);
+
+update fragmento
+set id_capitulo = 14
+where (id = 246);
+
+update fragmento
+set id_capitulo = 14
+where (id = 131);
+
+update fragmento
+set id_capitulo = 14
+where (id = 433);
+
+update fragmento
+set id_capitulo = 14
+where (id = 501);
+
+update fragmento
+set id_capitulo = 14
+where (id = 421);
+
+update fragmento
+set id_capitulo = 14
+where (id = 339);
+
+update fragmento
+set id_capitulo = 14
+where (id = 471);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 15
+where (id = 163);
+
+update fragmento
+set id_capitulo = 15
+where (id = 115);
+
+update fragmento
+set id_capitulo = 15
+where (id = 483);
+
+update fragmento
+set id_capitulo = 15
+where (id = 223);
+
+update fragmento
+set id_capitulo = 15
+where (id = 151);
+
+update fragmento
+set id_capitulo = 15
+where (id = 123);
+
+update fragmento
+set id_capitulo = 15
+where (id = 118);
+
+update fragmento
+set id_capitulo = 15
+where (id = 196);
+
+update fragmento
+set id_capitulo = 15
+where (id = 261);
+
+update fragmento
+set id_capitulo = 15
+where (id = 172);
+
+update fragmento
+set id_capitulo = 15
+where (id = 517);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 16
+where (id = 530);
+
+update fragmento
+set id_capitulo = 16
+where (id = 526);
+
+update fragmento
+set id_capitulo = 16
+where (id = 268);
+
+update fragmento
+set id_capitulo = 16
+where (id = 472);
+
+update fragmento
+set id_capitulo = 16
+where (id = 154);
+
+update fragmento
+set id_capitulo = 16
+where (id = 280);
+
+update fragmento
+set id_capitulo = 16
+where (id = 215);
+
+update fragmento
+set id_capitulo = 16
+where (id = 206);
+
+update fragmento
+set id_capitulo = 16
+where (id = 486);
+
+update fragmento
+set id_capitulo = 16
+where (id = 340);
+
+update fragmento
+set id_capitulo = 16
+where (id = 162);
+
+update fragmento
+set id_capitulo = 16
+where (id = 181);
+
+update fragmento
+set id_capitulo = 16
+where (id = 510);
+
+update fragmento
+set id_capitulo = 16
+where (id = 434);
+
+update fragmento
+set id_capitulo = 16
+where (id = 514);
+
+update fragmento
+set id_capitulo = 16
+where (id = 417);
+
+update fragmento
+set id_capitulo = 16
+where (id = 117);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 17
+where (id = 249);
+
+update fragmento
+set id_capitulo = 17
+where (id = 247);
+
+update fragmento
+set id_capitulo = 17
+where (id = 314);
+
+update fragmento
+set id_capitulo = 17
+where (id = 304);
+
+update fragmento
+set id_capitulo = 17
+where (id = 511);
+
+update fragmento
+set id_capitulo = 17
+where (id = 407);
+
+update fragmento
+set id_capitulo = 17
+where (id = 121);
+
+update fragmento
+set id_capitulo = 17
+where (id = 532);
+
+update fragmento
+set id_capitulo = 17
+where (id = 481);
+
+update fragmento
+set id_capitulo = 17
+where (id = 502);
+
+update fragmento
+set id_capitulo = 17
+where (id = 119);
+
+update fragmento
+set id_capitulo = 17
+where (id = 144);
+
+update fragmento
+set id_capitulo = 17
+where (id = 518);
+
+update fragmento
+set id_capitulo = 17
+where (id = 132);
+
+update fragmento
+set id_capitulo = 17
+where (id = 262);
+
+update fragmento
+set id_capitulo = 17
+where (id = 422);
+
+update fragmento
+set id_capitulo = 17
+where (id = 164);
+
+update fragmento
+set id_capitulo = 17
+where (id = 161);
+
+update fragmento
+set id_capitulo = 17
+where (id = 319);
+
+update fragmento
+set id_capitulo = 17
+where (id = 312);
+
+-------------------------------------------------------------------------------------------
+
+insert into capitulo (nombre,id_temporada) values ('Tercera pero no vencida',3);
+insert into capitulo (nombre,id_temporada) values ('Fiat justitia ruat caelum',3);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 18
+where (id = 153);
+
+update fragmento
+set id_capitulo = 18
+where (id = 224);
+
+update fragmento
+set id_capitulo = 18
+where (id = 150);
+
+update fragmento
+set id_capitulo = 18
+where (id = 197);
+
+update fragmento
+set id_capitulo = 18
+where (id = 156);
+
+update fragmento
+set id_capitulo = 18
+where (id = 116);
+
+update fragmento
+set id_capitulo = 18
+where (id = 506);
+
+update fragmento
+set id_capitulo = 18
+where (id = 341);
+
+update fragmento
+set id_capitulo = 18
+where (id = 235);
+
+update fragmento
+set id_capitulo = 18
+where (id = 207);
+
+update fragmento
+set id_capitulo = 18
+where (id = 238);
+
+update fragmento
+set id_capitulo = 18
+where (id = 484);
+
+update fragmento
+set id_capitulo = 18
+where (id = 182);
+
+update fragmento
+set id_capitulo = 18
+where (id = 173);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 19
+where (id = 408);
+
+update fragmento
+set id_capitulo = 19
+where (id = 269);
+
+update fragmento
+set id_capitulo = 19
+where (id = 155);
+
+update fragmento
+set id_capitulo = 19
+where (id = 120);
+
+update fragmento
+set id_capitulo = 19
+where (id = 435);
+
+update fragmento
+set id_capitulo = 19
+where (id = 216);
+
+update fragmento
+set id_capitulo = 19
+where (id = 281);
+
+update fragmento
+set id_capitulo = 19
+where (id = 487);
+
+update fragmento
+set id_capitulo = 19
+where (id = 473);
+
+update fragmento
+set id_capitulo = 19
+where (id = 527);
+
+update fragmento
+set id_capitulo = 19
+where (id = 503);
+
+update fragmento
+set id_capitulo = 19
+where (id = 133);
+
+update fragmento
+set id_capitulo = 19
+where (id = 165);
+
+update fragmento
+set id_capitulo = 19
+where (id = 418);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 20
+where (id = 491);
+
+update fragmento
+set id_capitulo = 20
+where (id = 320);
+
+update fragmento
+set id_capitulo = 20
+where (id = 493);
+
+update fragmento
+set id_capitulo = 20
+where (id = 423);
+
+update fragmento
+set id_capitulo = 20
+where (id = 482);
+
+update fragmento
+set id_capitulo = 20
+where (id = 533);
+
+update fragmento
+set id_capitulo = 20
+where (id = 326);
+
+update fragmento
+set id_capitulo = 20
+where (id = 519);
+
+update fragmento
+set id_capitulo = 20
+where (id = 263);
+
+update fragmento
+set id_capitulo = 20
+where (id = 515);
+
+update fragmento
+set id_capitulo = 20
+where (id = 512);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 21
+where (id = 166);
+
+update fragmento
+set id_capitulo = 21
+where (id = 282);
+
+update fragmento
+set id_capitulo = 21
+where (id = 174);
+
+update fragmento
+set id_capitulo = 21
+where (id = 152);
+
+update fragmento
+set id_capitulo = 21
+where (id = 183);
+
+update fragmento
+set id_capitulo = 21
+where (id = 157);
+
+update fragmento
+set id_capitulo = 21
+where (id = 145);
+
+update fragmento
+set id_capitulo = 21
+where (id = 208);
+
+update fragmento
+set id_capitulo = 21
+where (id = 313);
+
+update fragmento
+set id_capitulo = 21
+where (id = 436);
+
+update fragmento
+set id_capitulo = 21
+where (id = 342);
+
+update fragmento
+set id_capitulo = 21
+where (id = 270);
+
+update fragmento
+set id_capitulo = 21
+where (id = 236);
+
+update fragmento
+set id_capitulo = 21
+where (id = 134);
+
+update fragmento
+set id_capitulo = 21
+where (id = 239);
+
+update fragmento
+set id_capitulo = 21
+where (id = 474);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 22
+where (id = 494);
+
+update fragmento
+set id_capitulo = 22
+where (id = 237);
+
+update fragmento
+set id_capitulo = 22
+where (id = 198);
+
+update fragmento
+set id_capitulo = 22
+where (id = 504);
+
+update fragmento
+set id_capitulo = 22
+where (id = 485);
+
+update fragmento
+set id_capitulo = 22
+where (id = 264);
+
+update fragmento
+set id_capitulo = 22
+where (id = 225);
+
+update fragmento
+set id_capitulo = 22
+where (id = 520);
+
+update fragmento
+set id_capitulo = 22
+where (id = 528);
+
+update fragmento
+set id_capitulo = 22
+where (id = 488);
+
+update fragmento
+set id_capitulo = 22
+where (id = 513);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 23
+where (id = 175);
+
+update fragmento
+set id_capitulo = 23
+where (id = 424);
+
+update fragmento
+set id_capitulo = 23
+where (id = 260);
+
+update fragmento
+set id_capitulo = 23
+where (id = 135);
+
+update fragmento
+set id_capitulo = 23
+where (id = 306);
+
+update fragmento
+set id_capitulo = 23
+where (id = 184);
+
+update fragmento
+set id_capitulo = 23
+where (id = 321);
+
+update fragmento
+set id_capitulo = 23
+where (id = 146);
+
+update fragmento
+set id_capitulo = 23
+where (id = 324);
+
+update fragmento
+set id_capitulo = 23
+where (id = 534);
+
+update fragmento
+set id_capitulo = 23
+where (id = 465);
+
+update fragmento
+set id_capitulo = 23
+where (id = 283);
+
+update fragmento
+set id_capitulo = 23
+where (id = 516);
+
+update fragmento
+set id_capitulo = 23
+where (id = 209);
+
+update fragmento
+set id_capitulo = 23
+where (id = 343);
+
+-------------------------------------------------------------------------------------------
+
+update fragmento
+set id_capitulo = 24
+where (id = 505);
+
+update fragmento
+set id_capitulo = 24
+where (id = 521);
+
+update fragmento
+set id_capitulo = 24
+where (id = 475);
+
+update fragmento
+set id_capitulo = 24
+where (id = 226);
+
+update fragmento
+set id_capitulo = 24
+where (id = 529);
+
+update fragmento
+set id_capitulo = 24
+where (id = 489);
+
+update fragmento
+set id_capitulo = 24
+where (id = 271);
+
+update fragmento
+set id_capitulo = 24
+where (id = 522);
+
+update fragmento
+set id_capitulo = 24
+where (id = 495);
+
+

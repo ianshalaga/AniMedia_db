@@ -1,0 +1,21 @@
+lee1 = open('/media/ianshalaga/Datos/Documentos/listanime.txt','r')
+escribe1 = open('/media/ianshalaga/Datos/Documentos/insertar1.txt','w')
+
+for line in lee1:
+	escribe1.write("insert into anime(nombre) values ('" + line + "');\n"),
+
+lee1.close(),
+escribe1.close(),
+
+
+
+
+
+lee2 = open('/media/ianshalaga/Datos/Documentos/listanime2.txt','r')
+escribe2 = open('/media/ianshalaga/Datos/Documentos/insertar2.txt','w')
+
+for line in lee2:
+	escribe2.write("insert into anime(nombre) values ('" + line + "');\n"),
+
+lee2.close(),
+escribe2.close(),
